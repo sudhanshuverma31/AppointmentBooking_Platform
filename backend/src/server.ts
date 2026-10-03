@@ -21,7 +21,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000,http://localhost')
+const allowedOrigins = (process.env.FRONTEND_URL || 'https://appointmentbooking-platform-2.onrender.com,http://localhost:3000,http://localhost')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
