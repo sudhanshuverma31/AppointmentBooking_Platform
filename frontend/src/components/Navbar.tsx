@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   CalendarCheck,
@@ -11,43 +11,26 @@ import {
   Menu,
   X,
   ChevronDown,
+  Wifi,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { notificationApi } from '../services/api';
-import { NotificationItem } from '../types';
+import { useNotifications } from '../context/NotificationContext';
 
 export const Navbar: React.FC = () => {
-  const { user, owner, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-    }
-  }, [user]);
-
-  const fetchNotifications = async () => {
-    try {
-      const res = await notificationApi.getNotifications();
-      setNotifications(res.data.notifications || []);
-      setUnreadCount(res.data.unreadCount || 0);
-    } catch (err) {
-      console.error('Failed to fetch notifications');
-    }
-  };
+  const { notifications, unreadCount, isConnected, markRead, markAllRead } = useNotifications();
 
   const handleMarkRead = async (id: string) => {
-    try {
-      await notificationApi.markAsRead(id);
-      fetchNotifications();
-    } catch (err) {
-      console.error('Failed to mark read');
-    }
+    await markRead(id);
+  };
+
+  const handleMarkAllRead = async () => {
+    await markAllRead();
   };
 
   return (
@@ -91,23 +74,35 @@ export const Navbar: React.FC = () => {
                 <button
                   onClick={() => setNotificationsOpen(!notificationsOpen)}
                   className="p-2 text-gray-600 hover:text-emerald-600 rounded-full hover:bg-emerald-50 transition relative"
-                  title="Notifications"
+                  title={isConnected ? 'Notifications (live)' : 'Notifications'}
                 >
                   <Bell className="w-5 h-5" />
+                  {/* Unread badge */}
                   {unreadCount > 0 && (
                     <span className="absolute top-1 right-1 w-4 h-4 bg-emerald-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                      {unreadCount}
+                      {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
+                  )}
+                  {/* Live SSE indicator dot */}
+                  {isConnected && unreadCount === 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-400 border border-white" title="Live" />
                   )}
                 </button>
 
                 {notificationsOpen && (
                   <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50">
                     <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
-                      <span className="font-bold text-sm text-gray-900">Notifications</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-sm text-gray-900">Notifications</span>
+                        {isConnected && (
+                          <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-semibold">
+                            <Wifi className="w-3 h-3" /> Live
+                          </span>
+                        )}
+                      </div>
                       {unreadCount > 0 && (
                         <button
-                          onClick={() => handleMarkRead('all')}
+                          onClick={handleMarkAllRead}
                           className="text-xs text-emerald-600 hover:underline font-medium"
                         >
                           Mark all as read
@@ -138,6 +133,7 @@ export const Navbar: React.FC = () => {
                   </div>
                 )}
               </div>
+
 
               {/* Role specific CTA button */}
               {user.role === 'OWNER' && (

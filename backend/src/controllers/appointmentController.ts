@@ -209,20 +209,57 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
       updatedAt: new Date().toISOString(),
     };
 
+    let createdAppointment: any = newAptData;
     if (mongoose.connection.readyState === 1) {
       const created = await Appointment.create({
         ...newAptData,
         _id: undefined,
       });
-      res.status(201).json({ message: 'Appointment booked successfully', appointment: created });
-      return;
+      createdAppointment = created;
+    } else {
+      memoryStore.appointments.push(newAptData as any);
     }
 
-    memoryStore.appointments.push(newAptData as any);
+    // Trigger Notification for Client
+    if (req.user?.email) {
+      sendNotification({
+        userId: userId.toString(),
+        title: 'Appointment Booked Successfully',
+        message: `Your appointment request for ${owner.outletName || owner.fullName} on ${appointmentDate} ${appointmentTime ? `at ${appointmentTime}` : ''} has been submitted.`,
+        type: 'APPOINTMENT',
+        email: req.user.email,
+        phone: phone || req.user.mobile,
+        details: {
+          serviceName: owner.title || owner.outletName,
+          ownerName: owner.fullName,
+          clientName: customerName,
+          date: appointmentDate,
+          time: appointmentTime || (owner.appointmentMode === 'TOKEN' ? `Token #${tokenNumber}` : 'Scheduled'),
+          status: 'PENDING',
+        },
+      });
+    }
+
+    // Trigger Notification for Provider/Owner
+    if (owner.userId) {
+      sendNotification({
+        userId: owner.userId.toString(),
+        title: 'New Appointment Booking Request',
+        message: `New appointment requested by ${customerName} for ${appointmentDate} ${appointmentTime ? `at ${appointmentTime}` : ''}.`,
+        type: 'APPOINTMENT',
+        details: {
+          serviceName: owner.title || owner.outletName,
+          clientName: customerName,
+          date: appointmentDate,
+          time: appointmentTime || (owner.appointmentMode === 'TOKEN' ? `Token #${tokenNumber}` : 'Scheduled'),
+          status: 'PENDING',
+        },
+      });
+    }
 
     res.status(201).json({
       message: 'Appointment booked successfully',
-      appointment: newAptData,
+      appointment: createdAppointment,
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message || 'Failed to book appointment' });
@@ -281,24 +318,48 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
     const { id } = req.params;
     const { status } = req.body;
 
+    let targetAppointment: any = null;
+
     if (mongoose.connection.readyState === 1) {
-      const appointment = await Appointment.findById(id);
+      const appointment = await Appointment.findById(id).populate('userId', 'email name mobile');
       if (appointment) {
         appointment.status = status;
         await appointment.save();
-        res.json({ message: `Appointment status updated to ${status}`, appointment });
-        return;
+        targetAppointment = appointment;
+      }
+    } else {
+      const apt = memoryStore.appointments.find((a) => a._id === id);
+      if (apt) {
+        apt.status = status;
+        targetAppointment = apt;
       }
     }
 
-    const apt = memoryStore.appointments.find((a) => a._id === id);
-    if (apt) {
-      apt.status = status;
-      res.json({ message: `Appointment status updated to ${status}`, appointment: apt });
+    if (!targetAppointment) {
+      res.status(404).json({ message: 'Appointment not found' });
       return;
     }
 
-    res.status(404).json({ message: 'Appointment not found' });
+    // Send status update notification to patient/client
+    const clientUser = targetAppointment.userId;
+    const clientEmail = typeof clientUser === 'object' && clientUser?.email ? clientUser.email : undefined;
+
+    sendNotification({
+      userId: typeof clientUser === 'object' ? clientUser._id.toString() : targetAppointment.userId,
+      title: `Appointment ${status}`,
+      message: `Your appointment for ${targetAppointment.appointmentDate} is now marked as ${status}.`,
+      type: 'APPOINTMENT',
+      email: clientEmail,
+      phone: targetAppointment.phone,
+      details: {
+        clientName: targetAppointment.customerName,
+        date: targetAppointment.appointmentDate,
+        time: targetAppointment.appointmentTime || (targetAppointment.tokenNumber ? `Token #${targetAppointment.tokenNumber}` : 'N/A'),
+        status: status,
+      },
+    });
+
+    res.json({ message: `Appointment status updated to ${status}`, appointment: targetAppointment });
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to update status' });
   }

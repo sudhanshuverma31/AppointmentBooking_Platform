@@ -1,31 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, XCircle, CheckCircle2, AlertCircle, Bell, User as UserIcon } from 'lucide-react';
-import { appointmentApi, notificationApi } from '../services/api';
-import { Appointment, NotificationItem } from '../types';
+import { Calendar, Clock, MapPin, XCircle, CheckCircle2, AlertCircle, Bell, User as UserIcon, Wifi } from 'lucide-react';
+import { appointmentApi } from '../services/api';
+import { Appointment } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 
 export const UserDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { notifications, unreadCount, isConnected, markRead, markAllRead } = useNotifications();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    fetchUserData();
+    fetchAppointments();
   }, []);
 
-  const fetchUserData = async () => {
+  const fetchAppointments = async () => {
     setLoading(true);
     try {
-      const [aptRes, notifRes] = await Promise.all([
-        appointmentApi.getUserAppointments(),
-        notificationApi.getNotifications(),
-      ]);
+      const aptRes = await appointmentApi.getUserAppointments();
       setAppointments(aptRes.data);
-      setNotifications(notifRes.data.notifications || []);
     } catch (err) {
       setErrorMsg('Failed to load user appointments');
     } finally {
@@ -37,7 +34,7 @@ export const UserDashboard: React.FC = () => {
     if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
     try {
       await appointmentApi.updateStatus(id, 'CANCELLED');
-      fetchUserData();
+      fetchAppointments();
     } catch (err) {
       alert('Failed to cancel appointment');
     }
@@ -173,20 +170,46 @@ export const UserDashboard: React.FC = () => {
             )}
           </div>
 
-          {/* Right Column: In-App Notifications Feed */}
+          {/* Right Column: Live Notifications Feed */}
           <div className="space-y-4">
-            <h2 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
-              <Bell className="w-5 h-5 text-emerald-600" />
-              <span>Activity & Notifications</span>
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+                <Bell className="w-5 h-5 text-emerald-600" />
+                <span>Activity & Notifications</span>
+                {isConnected && (
+                  <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-semibold ml-1">
+                    <Wifi className="w-3 h-3" /> Live
+                  </span>
+                )}
+              </h2>
+              {unreadCount > 0 && (
+                <button
+                  onClick={() => markAllRead()}
+                  className="text-xs text-emerald-600 hover:underline font-medium"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
 
             <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm divide-y divide-gray-100 max-h-96 overflow-y-auto">
               {notifications.length === 0 ? (
                 <p className="text-center text-xs text-gray-500 py-6">No recent notifications</p>
               ) : (
                 notifications.map((n) => (
-                  <div key={n._id} className="py-3 text-xs space-y-1">
-                    <p className="font-bold text-gray-900">{n.title}</p>
+                  <div
+                    key={n._id}
+                    onClick={() => !n.read && markRead(n._id)}
+                    className={`py-3 text-xs space-y-1 rounded-lg px-1 transition ${
+                      !n.read ? 'bg-emerald-50/60 font-semibold cursor-pointer' : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-bold text-gray-900">{n.title}</p>
+                      {!n.read && (
+                        <span className="w-2 h-2 mt-0.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                      )}
+                    </div>
                     <p className="text-gray-600 text-[11px]">{n.message}</p>
                     <span className="text-[10px] text-gray-400 block">
                       {new Date(n.createdAt).toLocaleString()}
@@ -197,6 +220,7 @@ export const UserDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );

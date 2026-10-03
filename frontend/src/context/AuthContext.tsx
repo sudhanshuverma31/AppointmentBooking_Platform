@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Owner } from '../types';
 import { authApi } from '../services/api';
+import { initClarity, identifyClarityUser, setClarityTag } from '../services/clarity';
 
 interface AuthContextType {
   user: User | null;
@@ -21,6 +22,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(localStorage.getItem('care_sync_token'));
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Initialize Microsoft Clarity tracking
+  useEffect(() => {
+    initClarity();
+  }, []);
+
   const refreshUser = async () => {
     const existingToken = localStorage.getItem('care_sync_token');
     if (!existingToken) {
@@ -32,8 +38,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const res = await authApi.getMe();
-      setUser(res.data.user);
+      const u = res.data.user;
+      setUser(u);
       setOwner(res.data.owner);
+
+      if (u) {
+        identifyClarityUser(u.id);
+        setClarityTag('user_role', u.role);
+      }
     } catch (err) {
       console.error('Failed to load authenticated user session:', err);
       localStorage.removeItem('care_sync_token');
@@ -54,6 +66,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(newToken);
     setUser(newUser);
     setOwner(newOwner);
+
+    if (newUser) {
+      identifyClarityUser(newUser.id);
+      setClarityTag('user_role', newUser.role);
+    }
   };
 
   const logout = () => {
