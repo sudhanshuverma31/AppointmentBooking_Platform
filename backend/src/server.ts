@@ -21,10 +21,13 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const allowedOrigins = (process.env.FRONTEND_URL || 'https://appointmentbooking-platform-2.onrender.com,http://localhost:3000,http://localhost')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const configuredOrigins = (process.env.FRONTEND_URL || '').split(',');
+const allowedOrigins = [...new Set([
+  ...configuredOrigins,
+  'https://appointmentbooking-platform-2.onrender.com',
+  'http://localhost:3000',
+  'http://localhost',
+].map((origin) => origin.trim()).filter(Boolean))];
 
 // Security & Parsing Middleware
 app.use(cors({
