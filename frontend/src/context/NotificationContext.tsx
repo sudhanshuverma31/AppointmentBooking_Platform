@@ -36,7 +36,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const refresh = useCallback(async () => {
     try {
       const res = await notificationApi.getNotifications();
-      setNotifications(res.data.notifications || []);
+      setNotifications(Array.isArray(res.data.notifications) ? res.data.notifications : []);
       setUnreadCount(res.data.unreadCount || 0);
     } catch {
       // silently fail — SSE will still work

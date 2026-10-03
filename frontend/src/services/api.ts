@@ -20,6 +20,16 @@ const api = axios.create({
   },
 });
 
+/** Keep array-based UI state safe when APIs return a wrapped or empty response. */
+export function asArray<T>(value: unknown, key?: string): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (key && value && typeof value === 'object') {
+    const wrapped = (value as Record<string, unknown>)[key];
+    if (Array.isArray(wrapped)) return wrapped as T[];
+  }
+  return [];
+}
+
 // Request interceptor to attach JWT Token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('care_sync_token');
@@ -57,8 +67,14 @@ export const authApi = {
 
 // CATEGORY APIs (1 Hour Cache)
 export const categoryApi = {
-  getCategories: () => cachedGet<Category[]>('/categories', undefined, 3600),
-  getAllAdmin: () => cachedGet<Category[]>('/categories/admin', undefined, 300),
+  getCategories: async () => {
+    const response = await cachedGet<Category[] | { categories?: Category[] }>('/categories', undefined, 3600);
+    return { ...response, data: asArray<Category>(response.data, 'categories') };
+  },
+  getAllAdmin: async () => {
+    const response = await cachedGet<Category[] | { categories?: Category[] }>('/categories/admin', undefined, 300);
+    return { ...response, data: asArray<Category>(response.data, 'categories') };
+  },
   create: async (data: any) => {
     const res = await api.post<Category>('/categories', data);
     clientCache.invalidate('/categories');
@@ -122,9 +138,14 @@ export const appointmentApi = {
     clientCache.invalidate('/appointments/my');
     return res;
   },
-  getUserAppointments: () => api.get<Appointment[]>('/appointments/my'),
-  getOwnerAppointments: (params?: { status?: string; date?: string; search?: string }) =>
-    api.get<Appointment[]>('/appointments/owner', { params }),
+  getUserAppointments: async () => {
+    const response = await api.get<Appointment[] | { appointments?: Appointment[] }>('/appointments/my');
+    return { ...response, data: asArray<Appointment>(response.data, 'appointments') };
+  },
+  getOwnerAppointments: async (params?: { status?: string; date?: string; search?: string }) => {
+    const response = await api.get<Appointment[] | { appointments?: Appointment[] }>('/appointments/owner', { params });
+    return { ...response, data: asArray<Appointment>(response.data, 'appointments') };
+  },
   updateStatus: async (id: string, status: string) => {
     const res = await api.patch<{ message: string; appointment: Appointment }>(`/appointments/${id}/status`, { status });
     clientCache.invalidate('/appointments/available-slots');
@@ -145,24 +166,45 @@ export const verificationApi = {
 // ADMIN APIs (10 Minutes Cache for Metrics)
 export const adminApi = {
   getMetrics: () => cachedGet<any>('/admin/metrics', undefined, 600),
-  getPendingVerifications: () => api.get<VerificationRequest[]>('/admin/verifications'),
+  getPendingVerifications: async () => {
+    const response = await api.get<VerificationRequest[] | { verifications?: VerificationRequest[] }>('/admin/verifications');
+    return { ...response, data: asArray<VerificationRequest>(response.data, 'verifications') };
+  },
   reviewVerification: (requestId: string, data: { action: string; adminNotes?: string }) =>
     api.post(`/admin/verifications/${requestId}/review`, data),
-  getOwners: (params?: { status?: string; search?: string }) => api.get<Owner[]>('/admin/owners', { params }),
+  getOwners: async (params?: { status?: string; search?: string }) => {
+    const response = await api.get<Owner[] | { owners?: Owner[] }>('/admin/owners', { params });
+    return { ...response, data: asArray<Owner>(response.data, 'owners') };
+  },
   toggleSuspendOwner: (ownerId: string, data: { suspend: boolean; reason?: string }) =>
     api.patch(`/admin/owners/${ownerId}/suspend`, data),
-  getReports: () => api.get<Report[]>('/admin/reports'),
+  getReports: async () => {
+    const response = await api.get<Report[] | { reports?: Report[] }>('/admin/reports');
+    return { ...response, data: asArray<Report>(response.data, 'reports') };
+  },
   resolveReport: (reportId: string, data: { status: string; resolutionNotes?: string; suspendOwner?: boolean }) =>
     api.post(`/admin/reports/${reportId}/resolve`, data),
-  getAuditLogs: () => api.get<AuditLog[]>('/admin/audit-logs'),
+  getAuditLogs: async () => {
+    const response = await api.get<AuditLog[] | { auditLogs?: AuditLog[] }>('/admin/audit-logs');
+    return { ...response, data: asArray<AuditLog>(response.data, 'auditLogs') };
+  },
   getCacheStats: () => api.get<any>('/admin/cache-stats'),
   flushCache: () => api.delete<any>('/admin/cache-flush'),
 };
 
 // NOTIFICATION APIs
 export const notificationApi = {
-  getNotifications: () =>
-    api.get<{ notifications: NotificationItem[]; unreadCount: number }>('/notifications'),
+  getNotifications: async () => {
+    const response = await api.get<{ notifications?: NotificationItem[]; unreadCount?: number }>('/notifications');
+    return {
+      ...response,
+      data: {
+        ...response.data,
+        notifications: asArray<NotificationItem>(response.data, 'notifications'),
+        unreadCount: response.data?.unreadCount || 0,
+      },
+    };
+  },
   markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
 };
 
