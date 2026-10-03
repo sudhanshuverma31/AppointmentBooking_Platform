@@ -26,6 +26,12 @@ export function asArray<T>(value: unknown, key?: string): T[] {
   if (key && value && typeof value === 'object') {
     const wrapped = (value as Record<string, unknown>)[key];
     if (Array.isArray(wrapped)) return wrapped as T[];
+    if (wrapped && typeof wrapped === 'object') return asArray<T>(wrapped);
+  }
+  if (value && typeof value === 'object') {
+    const wrapped = (value as Record<string, unknown>).data;
+    if (Array.isArray(wrapped)) return wrapped as T[];
+    if (wrapped && typeof wrapped === 'object') return asArray<T>(wrapped);
   }
   return [];
 }

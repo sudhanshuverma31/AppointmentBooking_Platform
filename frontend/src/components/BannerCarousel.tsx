@@ -6,10 +6,11 @@ interface BannerCarouselProps {
 }
 
 export const BannerCarousel: React.FC<BannerCarouselProps> = ({ images }) => {
+  const safeImages = Array.isArray(images) ? images : [];
   const [currentIndex, setCurrentIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  if (!images || images.length === 0) {
+  if (safeImages.length === 0) {
     return (
       <div className="w-full h-48 sm:h-64 md:h-80 bg-gradient-to-r from-emerald-900 to-gray-900 rounded-2xl flex items-center justify-center text-white/70 text-sm font-medium">
         <span>CareSync Verified Service Provider</span>
@@ -18,18 +19,18 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({ images }) => {
   }
 
   const prevSlide = () => {
-    setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    setCurrentIndex((prev) => (prev === 0 ? safeImages.length - 1 : prev - 1));
   };
 
   const nextSlide = () => {
-    setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+    setCurrentIndex((prev) => (prev === safeImages.length - 1 ? 0 : prev + 1));
   };
 
   return (
     <div className="relative w-full h-56 sm:h-72 md:h-96 rounded-2xl overflow-hidden bg-gray-900 shadow-md group">
       {/* Banner Image */}
       <img
-        src={images[currentIndex]}
+        src={safeImages[currentIndex]}
         alt={`Banner ${currentIndex + 1}`}
         className="w-full h-full object-cover transition-all duration-500 ease-out"
       />
@@ -39,7 +40,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({ images }) => {
 
       {/* Expand Preview Button */}
       <button
-        onClick={() => setPreviewImage(images[currentIndex])}
+        onClick={() => setPreviewImage(safeImages[currentIndex])}
         className="absolute top-4 right-4 p-2 bg-black/40 hover:bg-black/70 backdrop-blur-md text-white rounded-full transition"
         title="View image full screen"
       >
@@ -47,7 +48,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({ images }) => {
       </button>
 
       {/* Navigation Controls */}
-      {images.length > 1 && (
+      {safeImages.length > 1 && (
         <>
           <button
             onClick={prevSlide}
@@ -66,7 +67,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({ images }) => {
 
           {/* Indicators */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
-            {images.map((_, idx) => (
+            {safeImages.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setCurrentIndex(idx)}
