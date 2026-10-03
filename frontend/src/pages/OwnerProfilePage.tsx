@@ -203,7 +203,7 @@ export const OwnerProfilePage: React.FC = () => {
               </h3>
 
               <div className="divide-y divide-gray-100 text-xs">
-                {owner.workingHours?.map((wh) => (
+                {(Array.isArray(owner.workingHours) ? owner.workingHours : []).map((wh) => (
                   <div key={wh.day} className="py-2 flex items-center justify-between">
                     <span className="font-semibold text-gray-800">{wh.day}</span>
                     {wh.isOpen ? (

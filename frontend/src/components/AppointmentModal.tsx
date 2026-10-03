@@ -230,7 +230,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                   </label>
 
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1">
-                    {availabilityData?.slots?.map((slotObj: any) => (
+                    {(Array.isArray(availabilityData?.slots) ? availabilityData.slots : []).map((slotObj: any) => (
                       <button
                         key={slotObj.time}
                         type="button"

@@ -110,7 +110,17 @@ export const ownerApi = {
     sort?: string;
     page?: number;
     limit?: number;
-  }) => cachedGet<{ owners: Owner[]; pagination: any }>('/owners', params, 300),
+  }) => cachedGet<{ owners: Owner[]; pagination: any } | Owner[]>('/owners', params, 300).then((response) => {
+    const owners = asArray<Owner>(response.data, 'owners');
+    const raw = response.data as any;
+    return {
+      ...response,
+      data: {
+        owners,
+        pagination: Array.isArray(raw) ? { total: owners.length, totalPages: 1, limit: owners.length } : raw?.pagination || { total: owners.length, totalPages: 1, limit: owners.length },
+      },
+    };
+  }),
 
   getOwnerById: (id: string) => cachedGet<Owner>(`/owners/${id}`, undefined, 300),
   updateProfile: async (data: any) => {
